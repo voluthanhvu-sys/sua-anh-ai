@@ -25,3 +25,7 @@ Format:
 - Done: invite-link key (#k=), lock screen, real paid CheapAI edit OK, GitHub Pages deploy, scripts/invite.mjs + deploy.sh.
 - Result: e2e PASS (lock + link key), live site 200.
 - Lesson -> knowledge: yes.
+
+## 2026-11-08 — default quality medium, price labels
+- Done: quality default medium (~$0.01), price hints in the picker, e2e cleans stale profile; dropped the Cloudflare proxy idea (CheapAI has per-key limits).
+- Result: check OK, e2e PASS, deployed.

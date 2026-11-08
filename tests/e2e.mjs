@@ -28,6 +28,7 @@ const app = spawn(process.execPath, [join(root, 'scripts/serve.mjs'), String(APP
 const browsers = ['C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/google-chrome'];
 const exe = browsers.find(existsSync) || fail('no Edge/Chrome found');
 const profile = join(tmpdir(), 'pea-e2e-profile');
+rmSync(profile, { recursive: true, force: true }); // a failed run exits early and leaves its profile (with a saved key) behind
 const br = spawn(exe, ['--headless=new', `--remote-debugging-port=${CDP}`, `--user-data-dir=${profile}`, '--window-size=430,1400', 'about:blank'], { stdio: 'ignore' });
 function cleanup() { try { br.kill(); app.kill(); api.close(); } catch {} }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

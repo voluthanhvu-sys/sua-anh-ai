@@ -8,6 +8,7 @@ Rules live in AGENTS.md / docs/knowledge.md, never here. Old content is in LOG.m
 - Real CheapAI edit verified 2026-11-08 (gpt-image-2.5, 27 s, input_fidelity accepted).
 
 ## OWED (promised, not done)
+- Link for Lợi ($3): waiting for his CheapAI sub-key "Loi" -> invite.mjs.
 - (none)
 
 ## Next step

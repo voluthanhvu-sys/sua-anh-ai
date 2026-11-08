@@ -4,7 +4,7 @@ const $ = (s) => document.querySelector(s);
 
 // ---------- settings (localStorage, this device only) ----------
 // Default provider = CheapAI (OpenAI-compatible, CORS open, /images/edits works; probed 2026-11-08).
-const DEFAULTS = { key: '', base: 'https://api.cheapai.io/v1', model: 'gpt-image-2.5', size: 'auto', fidelity: true, quality: 'auto' };
+const DEFAULTS = { key: '', base: 'https://api.cheapai.io/v1', model: 'gpt-image-2.5', size: 'auto', fidelity: true, quality: 'medium' };
 const cfg = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem('cfg') || '{}'));
 const saveCfg = () => localStorage.setItem('cfg', JSON.stringify(cfg));
 // Ready-made link: https://.../#k=<key> — the part after # never reaches any server; the app keeps the key on this device.
