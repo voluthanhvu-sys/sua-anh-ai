@@ -29,3 +29,7 @@ Format:
 ## 2026-11-08 — default quality medium, price labels
 - Done: quality default medium (~$0.01), price hints in the picker, e2e cleans stale profile; dropped the Cloudflare proxy idea (CheapAI has per-key limits).
 - Result: check OK, e2e PASS, deployed.
+
+## 2026-11-08 — v6 chat app
+- Done: app rewritten as a chat (claude-sonnet-5 with edit_image/generate_image tools -> gpt-image-2.5), conversations in IndexedDB, attach photos, viewer + save, settings for both models; e2e rewritten (fake SSE + tool call).
+- Result: check OK, e2e PASS (screenshot reviewed), real CheapAI stream + tool round trip OK.

@@ -5,8 +5,8 @@
 - docs/knowledge.md — lessons, decisions, dropped · VALIDATION.md — how to test
 
 ## App (web/, static, no build)
-- web/index.html — layout: source photo, presets + prompt, result, history, settings dialog
-- web/app.js — all logic: cfg (localStorage), PRESETS, IndexedDB history (histAdd/histAll), prep() resize+JPEG, callApi() (/images/edits or /images/generations), run(), save() (iOS share sheet)
+- web/index.html — chat layout: header (☰ conversations, ＋ new, ⚙ settings), chat, composer (📎 attach), drawer, image viewer, settings dialog
+- web/app.js — all logic: cfg (localStorage, #k= link key), SYSTEM prompt + TOOLS (edit_image, generate_image), IndexedDB conversations (convAll/convSave), apiMessages() (only 2 newest user images sent as pictures), chatTurn() (SSE stream + tool-call deltas), runTool() -> imageCall() (/images/edits with image[], /images/generations), send() loop (max 3 tool rounds), render/drawer/viewer/save
 - web/style.css — dark mobile UI · web/sw.js — offline shell (bump VERSION) · web/manifest.webmanifest + web/icons/ — home-screen app
 
 ## Scripts / tests

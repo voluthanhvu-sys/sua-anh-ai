@@ -5,7 +5,7 @@ Other agent files (CLAUDE.md, GEMINI.md, ...) only point here. One copy, no drif
 
 ## 0. Project (fill in once)
 - Name: Photo Edit AI
-- Goal: personal iPhone web app (PWA) to edit any photo with free-text prompts via an OpenAI-compatible Images API (default CheapAI api.cheapai.io, model gpt-image-2.5), no ChatGPT app needed.
+- Goal: private ChatGPT-style iPhone web app (PWA): chat model (claude-sonnet-5) that edits/creates photos by calling the image model (gpt-image-2.5), both via CheapAI api.cheapai.io.
 - Stack: static HTML/CSS/vanilla JS in web/ (no build, no backend); key stored in the browser (localStorage); history in IndexedDB.
 - Operator language: Vietnamese — reply in it, short and to the point. UI text in Vietnamese.
 - Run: node scripts/serve.mjs (http://localhost:8080 + LAN address for the phone)   Test: see VALIDATION.md

@@ -3,9 +3,9 @@
 Rules live in AGENTS.md / docs/knowledge.md, never here. Old content is in LOG.md.
 
 ## In progress
-- LIVE: https://voluthanhvu-sys.github.io/sua-anh-ai/ (repo voluthanhvu-sys/sua-anh-ai, Pages from gh-pages = web/).
-- Private: no #k= key -> lock screen. Owner link (main CheapAI key) in LINKS.local.txt (gitignored).
-- Real CheapAI edit verified 2026-11-08 (gpt-image-2.5, 27 s, input_fidelity accepted).
+- LIVE: https://voluthanhvu-sys.github.io/sua-anh-ai/ (repo voluthanhvu-sys/sua-anh-ai, Pages = web/ on gh-pages). v6 = chat app: claude-sonnet-5 + gpt-image-2.5 via CheapAI, conversations, attach photos, viewer/save.
+- Private: no #k= key -> lock screen. Owner link in LINKS.local.txt (gitignored).
+- Verified for real: image edit (27 s), chat stream + tool round trip. Not yet: a full real chat->edit run inside the app on the iPhone.
 
 ## OWED (promised, not done)
 - Link for Lợi ($3): waiting for his CheapAI sub-key "Loi" -> invite.mjs.

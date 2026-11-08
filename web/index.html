@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#111">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,80 +15,79 @@
 </head>
 <body>
 <header>
-  <h1>Sửa Ảnh AI</h1>
+  <button id="btnMenu" class="icon" aria-label="Các cuộc trò chuyện">☰</button>
+  <h1 id="title">Sửa Ảnh AI</h1>
+  <button id="btnNew" class="icon" aria-label="Cuộc trò chuyện mới">＋</button>
   <button id="btnSettings" class="icon" aria-label="Cài đặt">⚙︎</button>
 </header>
 
-<section id="locked" class="card locked hidden">
+<section id="locked" class="locked hidden">
   <h2>🔒 Ứng dụng riêng tư</h2>
   <p class="hint">Chỉ dùng được bằng link mời riêng. Hãy mở đúng link bạn được gửi.</p>
 </section>
 
 <main id="app">
-  <section class="card">
-    <div id="srcBox" class="imgbox empty">
-      <img id="srcImg" alt="">
-      <span class="hint">Chưa có ảnh: chọn ảnh để sửa, hoặc để trống để tạo ảnh mới</span>
-      <button id="btnClearSrc" class="clear hidden" aria-label="Bỏ ảnh">✕</button>
-    </div>
-    <div class="row">
-      <label class="btn">Chọn ảnh<input id="filePick" type="file" accept="image/*" hidden></label>
-      <label class="btn">Chụp ảnh<input id="fileCam" type="file" accept="image/*" capture="environment" hidden></label>
-    </div>
-  </section>
-
-  <section class="card">
-    <div id="presets" class="chips"></div>
-    <textarea id="prompt" rows="4" placeholder="Muốn sửa gì? Ví dụ: làm da mịn tự nhiên, đổi nền thành bãi biển lúc hoàng hôn..."></textarea>
-    <div class="row">
-      <select id="quality" aria-label="Chất lượng">
-        <option value="medium">Vừa (~$0.01, nên dùng)</option>
-        <option value="auto">Tự động (có thể đắt)</option>
-        <option value="low">Thấp (~$0.003, nhanh)</option>
-        
-        <option value="high">Cao (~$0.04)</option>
-      </select>
-      <button id="btnGo" class="btn primary">Sửa ảnh</button>
-    </div>
-    <p id="status" class="status"></p>
-  </section>
-
-  <section id="resultCard" class="card hidden">
-    <div class="imgbox"><img id="outImg" alt="Kết quả"></div>
-    <p class="hint small">Giữ ngón tay trên ảnh để xem ảnh gốc</p>
-    <div class="row">
-      <button id="btnSave" class="btn primary">Lưu / Chia sẻ</button>
-      <button id="btnAgain" class="btn">Sửa tiếp ảnh này</button>
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="row between"><h2>Lịch sử</h2><button id="btnClearHist" class="link">Xoá hết</button></div>
-    <div id="history" class="grid"></div>
-  </section>
+  <div id="chat" class="chat"></div>
+  <div id="welcome" class="welcome">
+    <h2>Chào bạn 👋</h2>
+    <p class="hint">Hỏi gì cũng được, hoặc gửi ảnh và nói muốn sửa thế nào.</p>
+    <div id="suggest" class="chips"></div>
+  </div>
 </main>
+
+<footer id="composer">
+  <div id="attached" class="attached"></div>
+  <div class="bar">
+    <label class="icon attach" aria-label="Gửi ảnh">📎<input id="filePick" type="file" accept="image/*" multiple hidden></label>
+    <textarea id="input" rows="1" placeholder="Nhắn tin hoặc mô tả cách sửa ảnh..."></textarea>
+    <button id="btnSend" class="send" aria-label="Gửi">➤</button>
+  </div>
+</footer>
+
+<aside id="drawer" class="drawer hidden">
+  <div class="drawer-panel">
+    <div class="row between"><h2>Trò chuyện</h2><button id="btnCloseDrawer" class="icon">✕</button></div>
+    <button id="btnNew2" class="btn primary">＋ Cuộc trò chuyện mới</button>
+    <div id="convList" class="conv-list"></div>
+  </div>
+</aside>
+
+<div id="viewer" class="viewer hidden">
+  <img id="viewImg" alt="">
+  <div class="row">
+    <button id="btnSave" class="btn primary">Lưu / Chia sẻ</button>
+    <button id="btnUse" class="btn">Sửa tiếp ảnh này</button>
+    <button id="btnCloseView" class="btn">Đóng</button>
+  </div>
+</div>
 
 <dialog id="settings">
   <form method="dialog">
     <h2>Cài đặt</h2>
     <label>API key (chỉ lưu trên máy này)
-      <input id="setKey" type="password" autocomplete="off" placeholder="key CheapAI (hoặc OpenAI)">
+      <input id="setKey" type="password" autocomplete="off" placeholder="key CheapAI">
     </label>
     <label>Địa chỉ API
       <input id="setBase" type="url">
     </label>
-    <label>Model
-      <input id="setModel" list="models">
-      <datalist id="models">
-        <option value="gpt-image-2.5"><option value="gpt-image-2"><option value="gemini-3.1-flash-image"><option value="gpt-image-1">
+    <label>Model chat
+      <input id="setChatModel" list="chatModels">
+      <datalist id="chatModels">
+        <option value="claude-sonnet-5"><option value="claude-sonnet-5-5"><option value="claude-haiku-4-5-20251001"><option value="gpt-6-sol"><option value="gemini-3.5-flash">
       </datalist>
     </label>
-    <label>Kích thước
-      <select id="setSize">
-        <option value="auto">Tự động</option>
-        <option value="1024x1024">Vuông 1024</option>
-        <option value="1024x1536">Dọc 1024x1536</option>
-        <option value="1536x1024">Ngang 1536x1024</option>
+    <label>Model ảnh
+      <input id="setModel" list="models">
+      <datalist id="models">
+        <option value="gpt-image-2.5"><option value="gpt-image-2"><option value="gpt-image-2.5-flare"><option value="gpt-image-2.5-sunburst">
+      </datalist>
+    </label>
+    <label>Chất lượng ảnh
+      <select id="setQuality">
+        <option value="medium">Vừa (~$0.01, nên dùng)</option>
+        <option value="low">Thấp (~$0.003, nhanh)</option>
+        <option value="high">Cao (~$0.04)</option>
+        <option value="auto">Tự động (có thể đắt)</option>
       </select>
     </label>
     <label class="check"><input id="setFidelity" type="checkbox"> Giữ sát khuôn mặt / chi tiết gốc</label>
