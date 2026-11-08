@@ -1,10 +1,10 @@
-// Photo Edit AI — calls the OpenAI Images API straight from the browser. No backend.
+// Sửa Ảnh AI — a private ChatGPT-style app: a chat model (tool calling) + an image model, straight from the browser. No backend.
 'use strict';
 const $ = (s) => document.querySelector(s);
 
 // ---------- settings (localStorage, this device only) ----------
-// Default provider = CheapAI (OpenAI-compatible, CORS open, /images/edits works; probed 2026-11-08).
-const DEFAULTS = { key: '', base: 'https://api.cheapai.io/v1', model: 'gpt-image-2.5', size: 'auto', fidelity: true, quality: 'medium' };
+// Default provider = CheapAI (OpenAI-compatible, CORS open). Chat model picked by test 2026-11-08 (fast, tool calls, cheap).
+const DEFAULTS = { key: '', base: 'https://api.cheapai.io/v1', chatModel: 'claude-sonnet-5', model: 'gpt-image-2.5', size: 'auto', fidelity: true, quality: 'medium' };
 const cfg = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem('cfg') || '{}'));
 const saveCfg = () => localStorage.setItem('cfg', JSON.stringify(cfg));
 // Ready-made link: https://.../#k=<key> — the part after # never reaches any server; the app keeps the key on this device.
@@ -12,190 +12,309 @@ const saveCfg = () => localStorage.setItem('cfg', JSON.stringify(cfg));
 const hashKey = new URLSearchParams(location.hash.slice(1)).get('k');
 if (hashKey && hashKey !== cfg.key) { cfg.key = hashKey; saveCfg(); }
 
-// ---------- presets: label shown, prompt sent (English = most reliable) ----------
-const PRESETS = [
-  ['Làm đẹp tự nhiên', 'Retouch this photo naturally: slightly smoother skin, even skin tone, brighter eyes, remove blemishes. Keep the person\'s identity, face shape and features exactly the same. Realistic, not plastic.'],
-  ['Ánh sáng & màu đẹp', 'Improve lighting and colors like a professional photographer: balanced exposure, soft flattering light, vivid but natural colors, sharper details. Change nothing else.'],
-  ['Xoá phông', 'Blur the background like a portrait lens with soft bokeh. Keep the subject sharp and unchanged.'],
-  ['Đổi nền', 'Replace the background with: '],
-  ['Xoá vật thừa', 'Remove these unwanted things from the photo and fill the area naturally: '],
-  ['Phục hồi ảnh cũ', 'Restore this old photo: remove scratches, dust and noise, sharpen faces, natural colors (colorize if black and white). Keep everyone\'s face identical.'],
-  ['Hoạt hình', 'Redraw this photo as a high-quality anime illustration, same people, pose and composition.'],
-  ['Tranh vẽ', 'Turn this photo into a detailed oil painting, same people, pose and composition.'],
+const SYSTEM = `Bạn là trợ lý AI thân thiện trong app "Sửa Ảnh AI". Trả lời ngắn gọn, tự nhiên, bằng ngôn ngữ người dùng đang dùng (mặc định tiếng Việt). Bạn trò chuyện và giải đáp mọi chủ đề, và là chuyên gia chỉnh ảnh.
+Ảnh trong cuộc trò chuyện được đánh số [ảnh 1], [ảnh 2]... theo thứ tự xuất hiện. Bạn chỉ nhìn thấy 2 ảnh gần nhất của người dùng; ảnh khác chỉ có số.
+- Người dùng muốn sửa ảnh có sẵn: gọi edit_image. "prompt" viết bằng tiếng Anh, cụ thể, nói rõ cái gì đổi và cái gì giữ nguyên (khuôn mặt, danh tính, dáng, bố cục). Mặc định sửa ảnh mới nhất; ghép nhiều ảnh thì đưa nhiều số.
+- Muốn tạo ảnh mới từ chữ: gọi generate_image.
+- Yêu cầu chưa rõ thì làm theo cách hợp lý nhất rồi gợi ý chỉnh thêm, đừng hỏi lại nhiều.
+- Ảnh xong: 1-2 câu ngắn về kết quả, có thể gợi ý một chỉnh sửa tiếp theo. Không lặp lại prompt tiếng Anh.`;
+
+const TOOLS = [
+  { type: 'function', function: { name: 'edit_image', description: 'Edit photos from the chat with the image model. The result is shown to the user as a new image.',
+    parameters: { type: 'object', properties: { prompt: { type: 'string', description: 'Detailed English edit instruction' },
+      images: { type: 'array', items: { type: 'integer' }, description: 'Image numbers to use; default = the latest image' } }, required: ['prompt'] } } },
+  { type: 'function', function: { name: 'generate_image', description: 'Create a brand-new image from a text description.',
+    parameters: { type: 'object', properties: { prompt: { type: 'string', description: 'Detailed English description' },
+      shape: { type: 'string', enum: ['square', 'portrait', 'landscape'] } }, required: ['prompt'] } } },
 ];
 
-// ---------- state ----------
-let src = null;       // Blob of the image being edited (null = generate new image)
-let out = null;       // Blob of the last result
-let busy = false;
+const SUGGEST = ['Làm đẹp tự nhiên ảnh này', 'Xoá phông cho ảnh', 'Đổi nền thành bãi biển hoàng hôn', 'Phục hồi ảnh cũ này',
+  'Biến ảnh thành tranh anime', 'Tạo ảnh chú mèo phi hành gia', 'Viết caption hay cho ảnh này'];
 
-// ---------- history (IndexedDB) ----------
-const HIST_MAX = 40;
+// ---------- storage (IndexedDB: one record per conversation, images kept as Blobs) ----------
 const dbp = new Promise((res, rej) => {
-  const q = indexedDB.open('photo-edit-ai', 1);
-  q.onupgradeneeded = () => q.result.createObjectStore('h', { keyPath: 'id' });
-  q.onsuccess = () => res(q.result);
-  q.onerror = () => rej(q.error);
+  const q = indexedDB.open('photo-edit-ai', 2);
+  q.onupgradeneeded = () => { if (!q.result.objectStoreNames.contains('conv')) q.result.createObjectStore('conv', { keyPath: 'id' }); };
+  q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
 });
 const tx = async (mode, fn) => { const db = await dbp; return new Promise((res, rej) => {
-  const t = db.transaction('h', mode); const r = fn(t.objectStore('h'));
+  const t = db.transaction('conv', mode); const r = fn(t.objectStore('conv'));
   t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }); };
-const histAll = async () => ((await tx('readonly', (s) => s.getAll())) || []).sort((a, b) => b.id - a.id);
-async function histAdd(rec) {
-  await tx('readwrite', (s) => s.put(rec));
-  const all = await histAll();
-  for (const old of all.slice(HIST_MAX)) await tx('readwrite', (s) => s.delete(old.id));
-}
+const convAll = async () => ((await tx('readonly', (s) => s.getAll())) || []).sort((a, b) => b.updated - a.updated);
+const convSave = () => { conv.updated = Date.now(); return tx('readwrite', (s) => s.put(conv)); };
+const newConv = () => ({ id: Date.now(), updated: Date.now(), title: '', messages: [] });
+
+// ---------- state ----------
+let conv = newConv();
+let pending = [];          // images attached to the next message
+let busy = false;
+let viewing = null;        // blob shown in the viewer
 
 // ---------- image helpers ----------
 function loadImg(blob) {
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Không đọc được ảnh này')); i.src = URL.createObjectURL(blob); });
 }
-// Shrink to max 2048 px and re-encode as JPEG (also turns iPhone HEIC into a format the API accepts).
-async function prep(file) {
-  const img = await loadImg(file);
-  const k = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight));
+// Resize + re-encode to JPEG (also turns iPhone HEIC into a format the API accepts).
+async function shrink(blob, max, q = 0.9) {
+  const img = await loadImg(blob);
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const c = document.createElement('canvas');
   c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   URL.revokeObjectURL(img.src);
-  return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.92));
+  return new Promise((res) => c.toBlob(res, 'image/jpeg', q));
 }
+const toDataUrl = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
 const b64ToBlob = (b64, type = 'image/png') => { const bin = atob(b64); const u = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type }); };
+const urls = new WeakMap();   // one object URL per blob
+const urlOf = (b) => { if (!urls.has(b)) urls.set(b, URL.createObjectURL(b)); return urls.get(b); };
+const allImages = () => conv.messages.flatMap((m) => m.images || []);
 
 // ---------- API ----------
-async function callApi(prompt, image, signal, withFidelity) {
-  const base = cfg.base.replace(/\/+$/, '');
-  const headers = { Authorization: 'Bearer ' + cfg.key };
-  let r;
-  if (image) {
-    const fd = new FormData();
-    fd.append('model', cfg.model); fd.append('prompt', prompt); fd.append('n', '1');
-    fd.append('size', cfg.size); fd.append('quality', cfg.quality);
-    if (withFidelity) fd.append('input_fidelity', 'high');
-    fd.append('image', image, 'image.jpg');
-    r = await fetch(base + '/images/edits', { method: 'POST', headers, body: fd, signal });
-  } else {
-    r = await fetch(base + '/images/generations', { method: 'POST', signal,
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: cfg.model, prompt, n: 1, size: cfg.size, quality: cfg.quality }) });
-  }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = new Error((j.error && j.error.message) || ('Lỗi ' + r.status)); e.status = r.status; throw e; }
-  const d = j.data && j.data[0];
-  if (d && d.b64_json) return b64ToBlob(d.b64_json);
-  if (d && d.url) return (await fetch(d.url)).blob();
-  throw new Error('API không trả ảnh');
-}
+const apiBase = () => cfg.base.replace(/\/+$/, '');
+const auth = () => ({ Authorization: 'Bearer ' + cfg.key });
+async function apiError(r) { const j = await r.json().catch(() => ({})); const e = new Error((j.error && j.error.message) || ('Lỗi ' + r.status)); e.status = r.status; return e; }
 
-async function run() {
-  if (busy) return;
-  const prompt = $('#prompt').value.trim();
-  if (!cfg.key) { openSettings(); return setStatus('Nhập API key trước', true); }
-  if (!prompt) return setStatus('Gõ yêu cầu sửa ảnh trước', true);
-  busy = true; $('#btnGo').disabled = true;
-  const ctl = new AbortController(); const t0 = Date.now();
-  const timer = setInterval(() => setStatus(`Đang ${src ? 'sửa' : 'tạo'} ảnh... ${Math.round((Date.now() - t0) / 1000)} s (thường 20-90 s)`), 1000);
-  const kill = setTimeout(() => ctl.abort(), 240000);
-  try {
-    let blob;
-    try { blob = await callApi(prompt, src, ctl.signal, src && cfg.fidelity); }
-    catch (e) { // some models do not take input_fidelity: retry once without it
-      if (src && cfg.fidelity && /fidelity/i.test(e.message)) blob = await callApi(prompt, src, ctl.signal, false);
-      else throw e;
+async function imageCall(prompt, images, shape, signal) {
+  const size = { square: '1024x1024', portrait: '1024x1536', landscape: '1536x1024' }[shape] || cfg.size;
+  const go = async (fidelity) => {
+    let r;
+    if (images.length) {
+      const fd = new FormData();
+      fd.append('model', cfg.model); fd.append('prompt', prompt); fd.append('n', '1'); fd.append('size', size); fd.append('quality', cfg.quality);
+      if (fidelity) fd.append('input_fidelity', 'high');
+      images.forEach((b, i) => fd.append('image[]', b, `image${i + 1}.${b.type === 'image/png' ? 'png' : 'jpg'}`));
+      r = await fetch(apiBase() + '/images/edits', { method: 'POST', headers: auth(), body: fd, signal });
+    } else {
+      r = await fetch(apiBase() + '/images/generations', { method: 'POST', signal, headers: { ...auth(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: cfg.model, prompt, n: 1, size, quality: cfg.quality }) });
     }
-    out = blob;
-    showResult(blob);
-    await histAdd({ id: Date.now(), prompt, out: blob, src });
-    renderHistory();
-    setStatus(`Xong sau ${Math.round((Date.now() - t0) / 1000)} s`);
+    if (!r.ok) throw await apiError(r);
+    const d = ((await r.json()).data || [])[0];
+    if (d && d.b64_json) return b64ToBlob(d.b64_json);
+    if (d && d.url) return (await fetch(d.url)).blob();
+    throw new Error('API không trả ảnh');
+  };
+  try { return await go(images.length && cfg.fidelity); }
+  catch (e) { if (images.length && cfg.fidelity && /fidelity/i.test(e.message)) return go(false); throw e; }
+}
+
+// Chat history -> API messages. Only the user's 2 newest images are sent as pictures (cost); the rest are numbers.
+async function apiMessages(list) {
+  const total = allImages().length; let n = 0; const out = [];
+  for (const m of list) {
+    const parts = []; const labels = [];
+    for (const b of m.images || []) {
+      n++; labels.push(`[ảnh ${n}]`);
+      if (m.role === 'user' && n > total - 2) parts.push({ type: 'image_url', image_url: { url: await toDataUrl(await shrink(b, 768, 0.85)) } });
+    }
+    const text = [labels.join(' '), m.text].filter(Boolean).join('\n') || '(ảnh)';
+    if (m.role === 'user') out.push({ role: 'user', content: parts.length ? [{ type: 'text', text }, ...parts] : text });
+    else out.push({ role: 'assistant', content: text });
+  }
+  return [{ role: 'system', content: SYSTEM }, ...out.slice(-30)];
+}
+
+// Streams one chat turn; returns the text and any tool calls. Works with non-streaming replies too.
+async function chatTurn(messages, onText, signal) {
+  const r = await fetch(apiBase() + '/chat/completions', { method: 'POST', signal, headers: { ...auth(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: cfg.chatModel, messages, tools: TOOLS, stream: true, max_tokens: 1500 }) });
+  if (!r.ok) throw await apiError(r);
+  let text = ''; const calls = [];
+  const take = (delta) => {
+    if (!delta) return;
+    if (delta.content) { text += delta.content; onText(text); }
+    for (const tc of delta.tool_calls || []) {
+      const c = (calls[tc.index || 0] = calls[tc.index || 0] || { id: '', name: '', args: '' });
+      if (tc.id) c.id = tc.id;
+      if (tc.function && tc.function.name) c.name += tc.function.name;
+      if (tc.function && tc.function.arguments) c.args += tc.function.arguments;
+    }
+  };
+  if (!/event-stream/.test(r.headers.get('content-type') || '')) { const j = await r.json(); const m = j.choices[0].message;
+    take({ content: m.content, tool_calls: (m.tool_calls || []).map((t, i) => ({ index: i, ...t })) }); return { text, calls: calls.filter(Boolean) }; }
+  const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      const d = line.slice(5).trim(); if (d === '[DONE]') continue;
+      try { const j = JSON.parse(d); take(j.choices && j.choices[0] && j.choices[0].delta); } catch { /* keep-alive or partial */ }
+    }
+  }
+  return { text, calls: calls.filter(Boolean) };
+}
+
+async function runTool(name, args, signal) {
+  if (name === 'edit_image') {
+    const imgs = allImages();
+    const nums = Array.isArray(args.images) && args.images.length ? args.images : [imgs.length];
+    const blobs = nums.map((n) => imgs[n - 1]).filter(Boolean);
+    if (!blobs.length) throw new Error('chưa có ảnh nào để sửa');
+    return imageCall(String(args.prompt || ''), blobs, null, signal);
+  }
+  if (name === 'generate_image') return imageCall(String(args.prompt || ''), [], args.shape, signal);
+  throw new Error('công cụ không có: ' + name);
+}
+
+// ---------- send ----------
+async function send() {
+  if (busy) return;
+  const text = $('#input').value.trim();
+  if (!text && !pending.length) return;
+  if (!cfg.key) return openSettings();
+  busy = true; $('#btnSend').disabled = true;
+  conv.messages.push({ role: 'user', text, images: pending });
+  if (!conv.title) conv.title = (text || 'Ảnh').slice(0, 40);
+  pending = []; renderAttached(); $('#input').value = ''; autoGrow();
+  const history = conv.messages.slice();
+  const bot = { role: 'assistant', text: '', images: [] };
+  conv.messages.push(bot);
+  render(); await convSave();
+  const ctl = new AbortController(); const kill = setTimeout(() => ctl.abort(), 300000);
+  const show = (t) => { bot.text = t; updateLast(); };
+  try {
+    let msgs = await apiMessages(history);
+    let res = await chatTurn(msgs, show, ctl.signal);
+    for (let round = 0; res.calls.length && round < 3; round++) {
+      const calls = res.calls.map((c, i) => ({ id: c.id || `call_${round}_${i}`, type: 'function', function: { name: c.name, arguments: c.args || '{}' } }));
+      const results = [];
+      for (const c of calls) {
+        let args = {}; try { args = JSON.parse(c.function.arguments); } catch { /* empty args */ }
+        const t0 = Date.now();
+        const tick = setInterval(() => setLastStatus(`${c.function.name === 'generate_image' ? 'Đang tạo ảnh' : 'Đang sửa ảnh'}... ${Math.round((Date.now() - t0) / 1000)} s (thường 20-60 s)`), 1000);
+        try { bot.images.push(await runTool(c.function.name, args, ctl.signal)); results.push(`Done: shown to the user as [ảnh ${allImages().length}].`); }
+        catch (e) { results.push('Error: ' + e.message); bot.toolError = e.message; }
+        finally { clearInterval(tick); setLastStatus(''); }
+        updateLast(); convSave();
+      }
+      msgs = [...msgs, { role: 'assistant', content: res.text || null, tool_calls: calls },
+        ...calls.map((c, i) => ({ role: 'tool', tool_call_id: c.id, content: results[i] }))];
+      const before = bot.text ? bot.text + '\n\n' : '';
+      res = await chatTurn(msgs, (t) => show(before + t), ctl.signal);
+    }
+    if (!bot.text && !bot.images.length) bot.text = bot.toolError ? '⚠️ ' + bot.toolError : '(không có trả lời)';
   } catch (e) {
-    setStatus(e.name === 'AbortError' ? 'Quá 4 phút không có kết quả, thử lại nhé' : 'Lỗi: ' + e.message, true);
+    bot.err = true;
+    bot.text = (bot.text ? bot.text + '\n\n' : '') + '⚠️ ' + (e.name === 'AbortError' ? 'Quá lâu không có kết quả, thử lại nhé' : e.message);
   } finally {
-    clearInterval(timer); clearTimeout(kill); busy = false; $('#btnGo').disabled = false;
+    clearTimeout(kill); busy = false; $('#btnSend').disabled = false;
+    updateLast(); await convSave();
   }
 }
 
-// ---------- UI ----------
-function setStatus(msg, err) { const s = $('#status'); s.textContent = msg; s.classList.toggle('err', !!err); }
-function setSrc(blob) {
-  src = blob;
-  const img = $('#srcImg');
-  if (img.src) URL.revokeObjectURL(img.src);
-  img.src = blob ? URL.createObjectURL(blob) : '';
-  $('#srcBox').classList.toggle('empty', !blob);
-  $('#btnClearSrc').classList.toggle('hidden', !blob);
-  $('#btnGo').textContent = blob ? 'Sửa ảnh' : 'Tạo ảnh mới';
+// ---------- rendering ----------
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, '<br>');
+function msgEl(m, isLast) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + (m.role === 'user' ? 'user' : 'bot') + (m.err ? ' err' : '');
+  if (m.images && m.images.length) {
+    const box = document.createElement('div'); box.className = 'imgs' + (m.images.length > 1 ? ' many' : '');
+    for (const b of m.images) { const i = document.createElement('img'); i.src = urlOf(b); i.onclick = () => openViewer(b); box.appendChild(i); }
+    d.appendChild(box);
+  }
+  const t = document.createElement('div'); t.className = 'text';
+  if (m.text) t.innerHTML = fmt(m.text); else if (m.role !== 'user' && isLast && busy) t.className = 'text typing';
+  d.appendChild(t);
+  const st = document.createElement('div'); st.className = 'status'; d.appendChild(st);
+  return d;
 }
-let outUrl = '', origUrl = '';
-function showResult(blob, original = src) {
-  if (outUrl) URL.revokeObjectURL(outUrl); if (origUrl) URL.revokeObjectURL(origUrl);
-  outUrl = URL.createObjectURL(blob); origUrl = original ? URL.createObjectURL(original) : '';
-  $('#outImg').src = outUrl;
-  $('#resultCard').classList.remove('hidden');
-  $('#resultCard').scrollIntoView({ behavior: 'smooth' });
+function render() {
+  const chat = $('#chat'); chat.textContent = '';
+  conv.messages.forEach((m, i) => chat.appendChild(msgEl(m, i === conv.messages.length - 1)));
+  $('#welcome').classList.toggle('hidden', conv.messages.length > 0);
+  $('#title').textContent = conv.title || 'Sửa Ảnh AI';
+  scrollDown();
 }
-async function onFile(e) {
-  const f = e.target.files[0]; e.target.value = '';
-  if (!f) return;
-  try { setSrc(await prep(f)); setStatus(''); } catch (err) { setStatus(err.message, true); }
+function updateLast() {
+  const chat = $('#chat'); const last = chat.lastElementChild; if (!last) return;
+  const st = last.querySelector('.status').textContent;
+  const fresh = msgEl(conv.messages[conv.messages.length - 1], true);
+  fresh.querySelector('.status').textContent = st;
+  chat.replaceChild(fresh, last); scrollDown();
 }
+function setLastStatus(s) { const last = $('#chat').lastElementChild; if (last) last.querySelector('.status').textContent = s; }
+function scrollDown() { const m = $('main'); requestAnimationFrame(() => { m.scrollTop = m.scrollHeight; }); }
+function renderAttached() {
+  const box = $('#attached'); box.textContent = '';
+  pending.forEach((b, i) => {
+    const d = document.createElement('div'); const img = document.createElement('img'); img.src = urlOf(b);
+    const x = document.createElement('button'); x.textContent = '✕'; x.onclick = () => { pending.splice(i, 1); renderAttached(); };
+    d.append(img, x); box.appendChild(d);
+  });
+}
+function autoGrow() { const t = $('#input'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 140) + 'px'; }
+
+// ---------- conversations drawer ----------
+async function openDrawer() {
+  const list = $('#convList'); list.textContent = '';
+  for (const c of await convAll()) {
+    if (!c.messages.length) continue;
+    const row = document.createElement('div'); if (c.id === conv.id) row.className = 'on';
+    const s = document.createElement('span'); s.textContent = c.title || 'Trò chuyện'; s.onclick = () => { conv = c; render(); closeDrawer(); };
+    const x = document.createElement('button'); x.textContent = '🗑'; x.setAttribute('aria-label', 'Xoá');
+    x.onclick = async () => { if (!confirm('Xoá cuộc trò chuyện này?')) return; await tx('readwrite', (st) => st.delete(c.id)); if (c.id === conv.id) { conv = newConv(); render(); } openDrawer(); };
+    row.append(s, x); list.appendChild(row);
+  }
+  $('#drawer').classList.remove('hidden');
+}
+const closeDrawer = () => $('#drawer').classList.add('hidden');
+function startNew() { if (busy) return; conv = newConv(); pending = []; renderAttached(); render(); closeDrawer(); $('#input').focus(); }
+
+// ---------- viewer ----------
+function openViewer(b) { viewing = b; $('#viewImg').src = urlOf(b); $('#viewer').classList.remove('hidden'); }
 async function save() {
-  if (!out) return;
-  const file = new File([out], `sua-anh-${Date.now()}.png`, { type: 'image/png' });
+  if (!viewing) return;
+  const file = new File([viewing], `sua-anh-${Date.now()}.${viewing.type === 'image/png' ? 'png' : 'jpg'}`, { type: viewing.type || 'image/png' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file] }); } catch (e) { if (e.name !== 'AbortError') setStatus(e.message, true); }
-  } else {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click();
-  }
+    try { await navigator.share({ files: [file] }); } catch { /* user closed the share sheet */ }
+  } else { const a = document.createElement('a'); a.href = urlOf(viewing); a.download = file.name; a.click(); }
 }
-async function renderHistory() {
-  const box = $('#history'); box.textContent = '';
-  for (const h of await histAll()) {
-    const img = document.createElement('img'); img.src = URL.createObjectURL(h.out); img.alt = h.prompt;
-    img.onclick = () => { out = h.out; showResult(h.out, h.src); $('#prompt').value = h.prompt; };
-    box.appendChild(img);
-  }
-}
+
+// ---------- settings ----------
 function openSettings() {
-  $('#setKey').value = cfg.key; $('#setBase').value = cfg.base; $('#setModel').value = cfg.model;
-  $('#setSize').value = cfg.size; $('#setFidelity').checked = cfg.fidelity;
+  $('#setKey').value = cfg.key; $('#setBase').value = cfg.base; $('#setChatModel').value = cfg.chatModel; $('#setModel').value = cfg.model;
+  $('#setQuality').value = cfg.quality; $('#setFidelity').checked = cfg.fidelity;
   $('#settings').showModal();
 }
-
-// Hold the result to see the original.
-const outImg = $('#outImg');
-const showOrig = (on) => { if (origUrl) outImg.src = on ? origUrl : outUrl; };
-outImg.addEventListener('pointerdown', () => showOrig(true));
-['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => outImg.addEventListener(ev, () => showOrig(false)));
-
-for (const [label, text] of PRESETS) {
-  const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
-  b.onclick = () => { const p = $('#prompt'); p.value = (p.value.trim() ? p.value.trim() + ' ' : '') + text; p.focus(); };
-  $('#presets').appendChild(b);
-}
-$('#quality').value = cfg.quality;
-$('#quality').onchange = (e) => { cfg.quality = e.target.value; saveCfg(); };
-$('#filePick').onchange = onFile; $('#fileCam').onchange = onFile;
-$('#btnClearSrc').onclick = () => setSrc(null);
-$('#btnGo').onclick = run;
-$('#btnSave').onclick = save;
-$('#btnAgain').onclick = () => { if (out) { setSrc(out); $('#prompt').value = ''; window.scrollTo({ top: 0, behavior: 'smooth' }); } };
-$('#btnSettings').onclick = openSettings;
 $('#btnSaveSettings').onclick = () => {
   cfg.key = $('#setKey').value.trim(); cfg.base = $('#setBase').value.trim() || DEFAULTS.base;
-  cfg.model = $('#setModel').value.trim() || DEFAULTS.model; cfg.size = $('#setSize').value; cfg.fidelity = $('#setFidelity').checked;
-  saveCfg(); setStatus('Đã lưu cài đặt');
+  cfg.chatModel = $('#setChatModel').value.trim() || DEFAULTS.chatModel; cfg.model = $('#setModel').value.trim() || DEFAULTS.model;
+  cfg.quality = $('#setQuality').value; cfg.fidelity = $('#setFidelity').checked; saveCfg();
 };
-$('#btnClearHist').onclick = async () => { if (confirm('Xoá hết lịch sử?')) { await tx('readwrite', (s) => s.clear()); renderHistory(); } };
 
-// Private app: without an invite key (#k= link) only the lock screen shows.
+// ---------- wiring ----------
+for (const s of SUGGEST) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = s;
+  b.onclick = () => { $('#input').value = s; autoGrow(); $('#input').focus(); };
+  $('#suggest').appendChild(b);
+}
+$('#filePick').onchange = async (e) => {
+  const files = [...e.target.files]; e.target.value = '';
+  for (const f of files) { try { pending.push(await shrink(f, 2048, 0.92)); } catch (err) { alert(err.message); } }
+  renderAttached();
+};
+$('#input').addEventListener('input', autoGrow);
+$('#input').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); send(); } });
+$('#btnSend').onclick = send;
+$('#btnMenu').onclick = openDrawer; $('#btnCloseDrawer').onclick = closeDrawer;
+$('#drawer').onclick = (e) => { if (e.target.id === 'drawer') closeDrawer(); };
+$('#btnNew').onclick = startNew; $('#btnNew2').onclick = startNew;
+$('#btnSettings').onclick = openSettings;
+$('#btnSave').onclick = save;
+$('#btnUse').onclick = () => { if (viewing) { pending.push(viewing); renderAttached(); } $('#viewer').classList.add('hidden'); $('#input').focus(); };
+$('#btnCloseView').onclick = () => $('#viewer').classList.add('hidden');
+
+// Private app: without a key (#k= link) only the lock screen shows.
 const locked = !cfg.key;
 $('#locked').classList.toggle('hidden', !locked);
-$('#app').classList.toggle('hidden', locked);
-$('#btnSettings').classList.toggle('hidden', locked);
+for (const id of ['#app', '#composer', '#btnSettings', '#btnMenu', '#btnNew']) $(id).classList.toggle('hidden', locked);
 
-setSrc(null);
-renderHistory();
+// Open the most recent conversation.
+convAll().then((all) => { if (all[0] && all[0].messages.length) conv = all[0]; render(); });
 if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js');
