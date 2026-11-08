@@ -8,7 +8,7 @@ Newest at the bottom. Grep, don't read whole.
 - [x] 2026-11-08 — dùng API CheapAI — default provider; real paid edit waits for his OK
 - [x] 2026-11-08 — cài sẵn, chỉ cần vào link là dùng — live on GitHub Pages, key in link
 - [x] 2026-11-08 — app riêng tư, chỉ người anh cấp mới dùng — lock screen + per-person sub-key links
-- [ ] 2026-11-08 — cấp link cho Lợi, hạn mức $3 — waiting: he creates CheapAI sub-key "Loi" ($3) at cheapai.io/en/keys (no dashboard login here), then node scripts/invite.mjs "Lợi" <key>
+- [x] 2026-11-08 — cấp link cho Lợi, hạn mức $3 — DONE (key Loi works for chat + image), was waiting: he creates CheapAI sub-key "Loi" ($3) at cheapai.io/en/keys (no dashboard login here), then node scripts/invite.mjs "Lợi" <key>
 - [x] 2026-11-08 — tích hợp model chat + model ảnh như ChatGPT thật (chat hỗ trợ + chỉnh ảnh) — v6 chat app live
 
 ## Done / Dropped

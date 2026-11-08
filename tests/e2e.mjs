@@ -61,8 +61,11 @@ try {
   await send('Page.navigate', { url: `http://127.0.0.1:${APP}/` }); await sleep(1500);
   if (!(await evalJs(`!document.querySelector('#locked').classList.contains('hidden') && document.querySelector('#composer').classList.contains('hidden')`))) fail('no lock screen without key');
 
-  // 2. #k= link unlocks
-  await send('Page.navigate', { url: `http://127.0.0.1:${APP}/#k=sk-fromlink` }); await send('Page.reload'); await sleep(1200);
+  // 2a. paste-unlock on the lock screen (chat apps may cut the #k= part off links)
+  await evalJs(`document.querySelector('#unlockInput').value='https://x/sua-anh-ai/#k=sk-pasted'; document.querySelector('#btnUnlock').click(); true`); await sleep(1500);
+  if ((await evalJs(`JSON.parse(localStorage.getItem('cfg')).key`)) !== 'sk-pasted' || !(await evalJs(`document.querySelector('#locked').classList.contains('hidden')`))) fail('paste unlock failed');
+  // 2b. a hash-only change in an open tab (no page load — the 2026-11-08 bug) must still pick up the key
+  await evalJs(`location.hash='k=sk-fromlink'; true`); await sleep(1500);
   if ((await evalJs(`JSON.parse(localStorage.getItem('cfg')).key`)) !== 'sk-fromlink') fail('#k= key not picked up');
   await evalJs(`localStorage.setItem('cfg', JSON.stringify({key:'sk-test', base:'http://127.0.0.1:${API}/v1'})); true`);
   await send('Page.navigate', { url: `http://127.0.0.1:${APP}/` }); await sleep(1500);
@@ -92,7 +95,7 @@ try {
 
   mkdirSync(join(root, 'tmp'), { recursive: true });
   writeFileSync(join(root, 'tmp/e2e.png'), Buffer.from((await send('Page.captureScreenshot')).data, 'base64'));
-  console.log('PASS: lock screen, #k= link, photo attach, streamed tool call -> image edit -> reply, plain chat, restore after reload, drawer. Screenshot tmp/e2e.png');
+  console.log('PASS: lock screen, paste unlock, #k= hash change, photo attach, streamed tool call -> image edit -> reply, plain chat, restore after reload, drawer. Screenshot tmp/e2e.png');
 } catch (e) { fail(e.message); }
 cleanup();
 setTimeout(() => { try { rmSync(profile, { recursive: true, force: true }); } catch {} process.exit(0); }, 500);

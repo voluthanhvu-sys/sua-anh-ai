@@ -10,6 +10,7 @@ Group under topic headings as the file grows; keep a short table of contents at 
 - Dropped
 
 ## Lessons
+- 2026-11-08: Operator saw the lock screen with a valid link: pasting a link into a tab already on the app only changes the #hash (no page load), so the key was never read. Fix: hashchange -> reload, plus a "Dán link mời" box on the lock screen (chat apps may also cut #k=). e2e covers both.
 - 2026-11-08: CheapAI streams claude-sonnet-5 as text/event-stream in OpenAI delta format (tool_calls deltas OK) but buffers it: everything arrives at once after ~7-10 s. Keep the typing indicator.
 - 2026-11-08: CheapAI DOES have per-key limits: Keys -> gear (/en/keys?edit=<id>): Spending limit $, Expires, Allowed models, Allowed IPs, enabled. Not in the page HTML until opened — open the settings before saying a feature is missing. Operator creates keys himself (faster than driving his Edge).
 - 2026-11-08: Git Bash rewrites args starting with / into Windows paths — prefix MSYS_NO_PATHCONV=1 when passing API paths like /user.

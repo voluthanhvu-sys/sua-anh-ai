@@ -11,6 +11,8 @@ const saveCfg = () => localStorage.setItem('cfg', JSON.stringify(cfg));
 // The hash stays in the URL on purpose: an iPhone Home Screen app has its own storage and reads the key from its saved URL.
 const hashKey = new URLSearchParams(location.hash.slice(1)).get('k');
 if (hashKey && hashKey !== cfg.key) { cfg.key = hashKey; saveCfg(); }
+// Pasting a new link into a tab that already shows the app only changes the #hash: no page load, so reload to read it.
+window.addEventListener('hashchange', () => location.reload());
 
 const SYSTEM = `Bạn là trợ lý AI thân thiện trong app "Sửa Ảnh AI". Trả lời ngắn gọn, tự nhiên, bằng ngôn ngữ người dùng đang dùng (mặc định tiếng Việt). Bạn trò chuyện và giải đáp mọi chủ đề, và là chuyên gia chỉnh ảnh.
 Ảnh trong cuộc trò chuyện được đánh số [ảnh 1], [ảnh 2]... theo thứ tự xuất hiện. Bạn chỉ nhìn thấy 2 ảnh gần nhất của người dùng; ảnh khác chỉ có số.
@@ -314,6 +316,13 @@ $('#btnCloseView').onclick = () => $('#viewer').classList.add('hidden');
 const locked = !cfg.key;
 $('#locked').classList.toggle('hidden', !locked);
 for (const id of ['#app', '#composer', '#btnSettings', '#btnMenu', '#btnNew']) $(id).classList.toggle('hidden', locked);
+// Some chat apps cut the #k= part off links: let the person paste the whole link (or the key) on the lock screen.
+$('#btnUnlock').onclick = () => {
+  const v = $('#unlockInput').value.trim();
+  const k = (/[#&]k=([^&\s]+)/.exec(v) || [])[1] || (/^sk-\S+$/.test(v) ? v : '');
+  if (!k) { $('#unlockMsg').textContent = 'Link không đúng, hãy dán nguyên link được gửi'; return; }
+  cfg.key = decodeURIComponent(k); saveCfg(); location.reload();
+};
 
 // Open the most recent conversation.
 convAll().then((all) => { if (all[0] && all[0].messages.length) conv = all[0]; render(); });

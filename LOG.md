@@ -33,3 +33,7 @@ Format:
 ## 2026-11-08 — v6 chat app
 - Done: app rewritten as a chat (claude-sonnet-5 with edit_image/generate_image tools -> gpt-image-2.5), conversations in IndexedDB, attach photos, viewer + save, settings for both models; e2e rewritten (fake SSE + tool call).
 - Result: check OK, e2e PASS (screenshot reviewed), real CheapAI stream + tool round trip OK.
+
+## 2026-11-08 — v7 unlock fix
+- Done: hashchange reload + paste-link unlock on the lock screen (operator could not open Lợi's link).
+- Result: e2e PASS incl. both cases; deployed.

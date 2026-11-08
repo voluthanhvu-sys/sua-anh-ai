@@ -8,7 +8,7 @@ Rules live in AGENTS.md / docs/knowledge.md, never here. Old content is in LOG.m
 - Verified for real: image edit (27 s), chat stream + tool round trip. Not yet: a full real chat->edit run inside the app on the iPhone.
 
 ## OWED (promised, not done)
-- Link for Lợi ($3): waiting for his CheapAI sub-key "Loi" -> invite.mjs.
+- (none) — Lợi link made 2026-11-08 (LINKS.local.txt).
 - (none)
 
 ## Next step
