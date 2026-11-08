@@ -20,3 +20,8 @@ Format:
 ## 2026-11-08 — switch to CheapAI
 - Done: defaults base api.cheapai.io/v1 + gpt-image-2.5, model list, fidelity retry on any status, sw v2, e2e expects default model.
 - Result: free probe OK (CORS *, edits route), check + e2e below.
+
+## 2026-11-08 — live + private
+- Done: invite-link key (#k=), lock screen, real paid CheapAI edit OK, GitHub Pages deploy, scripts/invite.mjs + deploy.sh.
+- Result: e2e PASS (lock + link key), live site 200.
+- Lesson -> knowledge: yes.

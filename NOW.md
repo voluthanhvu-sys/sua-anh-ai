@@ -3,11 +3,13 @@
 Rules live in AGENTS.md / docs/knowledge.md, never here. Old content is in LOG.md.
 
 ## In progress
-- v1 PWA done (web/), default provider CheapAI gpt-image-2.5. Free e2e PASS. No real paid edit yet (~$0.013 each, needs operator OK).
+- LIVE: https://voluthanhvu-sys.github.io/sua-anh-ai/ (repo voluthanhvu-sys/sua-anh-ai, Pages from gh-pages = web/).
+- Private: no #k= key -> lock screen. Owner link (main CheapAI key) in LINKS.local.txt (gitignored).
+- Real CheapAI edit verified 2026-11-08 (gpt-image-2.5, 27 s, input_fidelity accepted).
 
 ## OWED (promised, not done)
 - (none)
 
 ## Next step
-- Operator: run `node scripts/serve.mjs`, open the LAN address in iPhone Safari, Share -> Add to Home Screen, ⚙︎ -> paste CheapAI key (GhostForge uploads/cheapai.json), try one edit.
-- For use outside home Wi-Fi: host web/ on HTTPS (GitHub Pages / Cloudflare Pages) — publishing needs his OK.
+- New person: create a CheapAI sub-key with a spending limit (dashboard, needs his login) -> `node scripts/invite.mjs "<name>" <subkey>` -> send the link.
+- Change web/ -> bump web/sw.js VERSION -> `sh scripts/deploy.sh`.

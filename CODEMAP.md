@@ -10,6 +10,7 @@
 - web/style.css — dark mobile UI · web/sw.js — offline shell (bump VERSION) · web/manifest.webmanifest + web/icons/ — home-screen app
 
 ## Scripts / tests
+- scripts/invite.mjs — make a private invite link (records in LINKS.local.txt) · scripts/deploy.sh — publish web/ to GitHub Pages
 - scripts/serve.mjs — static server, prints LAN address for the iPhone
 - scripts/check.mjs — process checks · scripts/session-brief.mjs / stop-reminder.mjs — Claude Code hooks
 - tests/e2e.mjs — free end-to-end test with fake API + headless Edge/Chrome over CDP

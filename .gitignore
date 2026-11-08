@@ -7,3 +7,4 @@ secrets/
 tmp/
 *.log
 .claude/settings.local.json
+*.local.txt
