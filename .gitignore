@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+*.key
+*.pem
+secrets/
+tmp/
+*.log
+.claude/settings.local.json

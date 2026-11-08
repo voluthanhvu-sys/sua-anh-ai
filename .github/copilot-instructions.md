@@ -1,0 +1,1 @@
+Read `AGENTS.md` at the repo root first — it is the single source of rules. Keep this file a pointer.

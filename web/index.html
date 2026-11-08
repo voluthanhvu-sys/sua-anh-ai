@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sửa Ảnh AI">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+<title>Sửa Ảnh AI</title>
+</head>
+<body>
+<header>
+  <h1>Sửa Ảnh AI</h1>
+  <button id="btnSettings" class="icon" aria-label="Cài đặt">⚙︎</button>
+</header>
+
+<section id="locked" class="card locked hidden">
+  <h2>🔒 Ứng dụng riêng tư</h2>
+  <p class="hint">Chỉ dùng được bằng link mời riêng. Hãy mở đúng link bạn được gửi.</p>
+</section>
+
+<main id="app">
+  <section class="card">
+    <div id="srcBox" class="imgbox empty">
+      <img id="srcImg" alt="">
+      <span class="hint">Chưa có ảnh: chọn ảnh để sửa, hoặc để trống để tạo ảnh mới</span>
+      <button id="btnClearSrc" class="clear hidden" aria-label="Bỏ ảnh">✕</button>
+    </div>
+    <div class="row">
+      <label class="btn">Chọn ảnh<input id="filePick" type="file" accept="image/*" hidden></label>
+      <label class="btn">Chụp ảnh<input id="fileCam" type="file" accept="image/*" capture="environment" hidden></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div id="presets" class="chips"></div>
+    <textarea id="prompt" rows="4" placeholder="Muốn sửa gì? Ví dụ: làm da mịn tự nhiên, đổi nền thành bãi biển lúc hoàng hôn..."></textarea>
+    <div class="row">
+      <select id="quality" aria-label="Chất lượng">
+        <option value="auto">Chất lượng: tự động</option>
+        <option value="low">Thấp (rẻ, nhanh)</option>
+        <option value="medium">Vừa</option>
+        <option value="high">Cao (đắt hơn)</option>
+      </select>
+      <button id="btnGo" class="btn primary">Sửa ảnh</button>
+    </div>
+    <p id="status" class="status"></p>
+  </section>
+
+  <section id="resultCard" class="card hidden">
+    <div class="imgbox"><img id="outImg" alt="Kết quả"></div>
+    <p class="hint small">Giữ ngón tay trên ảnh để xem ảnh gốc</p>
+    <div class="row">
+      <button id="btnSave" class="btn primary">Lưu / Chia sẻ</button>
+      <button id="btnAgain" class="btn">Sửa tiếp ảnh này</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row between"><h2>Lịch sử</h2><button id="btnClearHist" class="link">Xoá hết</button></div>
+    <div id="history" class="grid"></div>
+  </section>
+</main>
+
+<dialog id="settings">
+  <form method="dialog">
+    <h2>Cài đặt</h2>
+    <label>API key (chỉ lưu trên máy này)
+      <input id="setKey" type="password" autocomplete="off" placeholder="key CheapAI (hoặc OpenAI)">
+    </label>
+    <label>Địa chỉ API
+      <input id="setBase" type="url">
+    </label>
+    <label>Model
+      <input id="setModel" list="models">
+      <datalist id="models">
+        <option value="gpt-image-2.5"><option value="gpt-image-2"><option value="gemini-3.1-flash-image"><option value="gpt-image-1">
+      </datalist>
+    </label>
+    <label>Kích thước
+      <select id="setSize">
+        <option value="auto">Tự động</option>
+        <option value="1024x1024">Vuông 1024</option>
+        <option value="1024x1536">Dọc 1024x1536</option>
+        <option value="1536x1024">Ngang 1536x1024</option>
+      </select>
+    </label>
+    <label class="check"><input id="setFidelity" type="checkbox"> Giữ sát khuôn mặt / chi tiết gốc</label>
+    <div class="row">
+      <button value="cancel" class="btn">Huỷ</button>
+      <button id="btnSaveSettings" value="ok" class="btn primary">Lưu</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
