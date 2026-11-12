@@ -10,6 +10,7 @@ Rules live in AGENTS.md / docs/knowledge.md, never here. Old content is in LOG.m
 ## 2026-11-12 — v8 LIVE (anh chốt "ok chốt phần này")
 - Chat model thấy 300 tin cuối + tóm tắt phần cũ (conv.summary, làm lại mỗi 100 tin), 20 ảnh (10 mới 1024px + 10 cũ 512px, gồm ảnh bot làm ra).
 - Chống nhòe: sửa lại ảnh kết quả = làm lại từ ẢNH GỐC + gộp mọi prompt (msg.meta {src,prompts}); from_result=true để sửa chồng.
+- v12: tự cập nhật app ghim (sw no-cache, reg.update khi mở lại, tự reload khi rảnh). CHƯA chứng minh trên iPhone: lần đổi kế tiếp (v13) xem app ghim tự lên không.
 - v11: nhãn "Phiên bản vN · ngày" (màn chào, menu, Cài đặt). Đổi web/ -> tăng APP_VERSION+APP_DATE (app.js) VÀ VERSION (sw.js); check.mjs chặn lệch.
 - Chất lượng sửa ảnh = ô riêng trong Cài đặt (cfg.editQuality), mặc định medium từ v10.
 - 12/11 đo thật high ~$0.078 vs medium ~$0.016, nhìn gần như nhau -> nhãn giá v9; v10 (anh chốt): editQuality mặc định medium, high chỉ khi chọn trong Cài đặt.

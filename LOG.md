@@ -58,3 +58,8 @@ Format:
 - Done: "Phiên bản vN · dd/mm/yyyy" on welcome, menu, Settings (APP_VERSION in app.js); check.mjs fails if it differs from sw.js VERSION; e2e checks the label.
 - Files: web/app.js, web/index.html, web/style.css, web/sw.js, scripts/check.mjs, tests/e2e.mjs, NOW/BACKLOG/knowledge.
 - Result: check OK, e2e PASS, welcome screenshot reviewed, deployed.
+
+## 2026-11-12 — v12 auto-update pinned app
+- Done: sw fetch no-cache + install reload, updateViaCache none, update check on visible/30 min, idle reload on controllerchange.
+- Files: web/sw.js, web/app.js, docs/knowledge.md, NOW/BACKLOG.
+- Result: check OK, e2e PASS, deployed. iPhone proof waits for v13.
