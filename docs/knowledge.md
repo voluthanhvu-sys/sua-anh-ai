@@ -29,5 +29,7 @@ Group under topic headings as the file grows; keep a short table of contents at 
 - 2026-11-08: No backend; key in localStorage on the phone — why: personal app, simplest; never commit a key.
 - 2026-11-08: Provider = CheapAI (operator 2026-11-08): base https://api.cheapai.io/v1, model gpt-image-2.5 (~$0.013/picture measured in GhostForge 07/11); input_fidelity high, auto-retry without it if rejected. Free probe: CORS * and /images/edits exists ("image is required"). Image models there: gpt-image-2, gpt-image-2.5(-flare/-sunburst), gemini-3.1-flash-image, grok-imagine-image.
 - 2026-11-08: Rules live only in AGENTS.md; other agent files are pointers — why: copies drift apart.
+- 2026-11-12: Chat context (operator chose after price table): last 300 messages + summary of older ones (redone every 100, window starts at the summary end so nothing falls in a gap), 20 newest images incl. bot results (10 at 1024 px, 10 at 512 px; bot results ride in the next user message). Why: cost per message is tiny (~1,400 tokens/1024px image x $0.26/M; 20 images ~130đ, 300 msgs ~200đ); the real limit is upload size/speed on 4G. Old setting (30 msgs, 2 user images 768px, bot never saw its own results) made it forget and blind.
+- 2026-11-12: Blur on repeated edits = gpt-image redraws the whole picture each edit (copy of a copy) + medium quality. Fix: re-editing a result redoes from the ORIGINAL with all prompts combined (later wins on conflict); from_result=true keeps chaining; edits default quality high (~$0.04). Not yet measured with a real paid chain.
 
 ## Dropped

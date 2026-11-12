@@ -7,6 +7,12 @@ Rules live in AGENTS.md / docs/knowledge.md, never here. Old content is in LOG.m
 - Private: no #k= key -> lock screen. Owner link in LINKS.local.txt (gitignored).
 - Verified for real: image edit (27 s), chat stream + tool round trip. Not yet: a full real chat->edit run inside the app on the iPhone.
 
+## 2026-11-12 — v8 LIVE (anh chốt "ok chốt phần này")
+- Chat model thấy 300 tin cuối + tóm tắt phần cũ (conv.summary, làm lại mỗi 100 tin), 20 ảnh (10 mới 1024px + 10 cũ 512px, gồm ảnh bot làm ra).
+- Chống nhòe: sửa lại ảnh kết quả = làm lại từ ẢNH GỐC + gộp mọi prompt (msg.meta {src,prompts}); from_result=true để sửa chồng.
+- Sửa ảnh mặc định quality high (cfg.editQuality, Cài đặt có ô riêng); tạo ảnh mới vẫn medium.
+- Chưa thử thật bằng tiền: một chuỗi 2 lần sửa trên iPhone (xem có nét hơn không). Hội thoại cũ (trước v8) chưa có meta -> không gộp.
+
 ## OWED (promised, not done)
 - (none) — Lợi link made 2026-11-08 (LINKS.local.txt).
 - (none)

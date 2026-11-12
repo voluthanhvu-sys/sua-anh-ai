@@ -37,3 +37,9 @@ Format:
 ## 2026-11-08 — v7 unlock fix
 - Done: hashchange reload + paste-link unlock on the lock screen (operator could not open Lợi's link).
 - Result: e2e PASS incl. both cases; deployed.
+
+## 2026-11-12 — v8 context + anti-blur
+- Done: 300-msg window + summary, 20 images (bot results too, 2 sizes), re-edit from original with combined prompts, edit quality high (own setting), sw v8; e2e steps 5-6.
+- Files: web/app.js, web/index.html, web/sw.js, tests/e2e.mjs, docs/knowledge.md, NOW/BACKLOG.
+- Result: check OK, node --check OK, e2e PASS (screenshot reviewed). Real paid chain not run.
+- Lesson -> knowledge: yes.
