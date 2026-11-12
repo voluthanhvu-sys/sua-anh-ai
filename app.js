@@ -4,7 +4,10 @@ const $ = (s) => document.querySelector(s);
 
 // ---------- settings (localStorage, this device only) ----------
 // Default provider = CheapAI (OpenAI-compatible, CORS open). Chat model picked by test 2026-11-08 (fast, tool calls, cheap).
-const DEFAULTS = { key: '', base: 'https://api.cheapai.io/v1', chatModel: 'claude-sonnet-5', model: 'gpt-image-2.5', size: 'auto', fidelity: true, quality: 'medium' };
+const DEFAULTS = { key: '', base: 'https://api.cheapai.io/v1', chatModel: 'claude-sonnet-5', model: 'gpt-image-2.5', size: 'auto', fidelity: true, quality: 'medium', editQuality: 'high' };
+// What the chat model gets (operator 2026-11-12): last KEEP messages + a summary of older ones (refreshed every SUMMARY_STEP),
+// the SHARP newest images (bot results too) at 1024 px, the SOFT ones before them at 512 px.
+const KEEP = 300, SUMMARY_STEP = 100, SHARP = 10, SOFT = 10;
 const cfg = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem('cfg') || '{}'));
 const saveCfg = () => localStorage.setItem('cfg', JSON.stringify(cfg));
 // Ready-made link: https://.../#k=<key> — the part after # never reaches any server; the app keeps the key on this device.
@@ -15,8 +18,9 @@ if (hashKey && hashKey !== cfg.key) { cfg.key = hashKey; saveCfg(); }
 window.addEventListener('hashchange', () => location.reload());
 
 const SYSTEM = `Bạn là trợ lý AI thân thiện trong app "Sửa Ảnh AI". Trả lời ngắn gọn, tự nhiên, bằng ngôn ngữ người dùng đang dùng (mặc định tiếng Việt). Bạn trò chuyện và giải đáp mọi chủ đề, và là chuyên gia chỉnh ảnh.
-Ảnh trong cuộc trò chuyện được đánh số [ảnh 1], [ảnh 2]... theo thứ tự xuất hiện. Bạn chỉ nhìn thấy 2 ảnh gần nhất của người dùng; ảnh khác chỉ có số.
-- Người dùng muốn sửa ảnh có sẵn: gọi edit_image. "prompt" viết bằng tiếng Anh, cụ thể, nói rõ cái gì đổi và cái gì giữ nguyên (khuôn mặt, danh tính, dáng, bố cục). Mặc định sửa ảnh mới nhất; ghép nhiều ảnh thì đưa nhiều số.
+Ảnh trong cuộc trò chuyện được đánh số [ảnh 1], [ảnh 2]... theo thứ tự xuất hiện. Bạn nhìn thấy 20 ảnh gần nhất (cả ảnh bạn đã làm ra; 10 ảnh mới nhất rõ nét, 10 ảnh trước đó nhỏ hơn); ảnh cũ hơn chỉ có số.
+- Người dùng muốn sửa ảnh có sẵn: gọi edit_image. "prompt" viết bằng tiếng Anh, cụ thể, CHỈ nói thay đổi MỚI lần này và cái gì giữ nguyên (khuôn mặt, danh tính, dáng, bố cục). Mặc định sửa ảnh mới nhất; ghép nhiều ảnh thì đưa nhiều số.
+- Chống nhòe: khi sửa tiếp một ảnh bạn đã làm ra, app tự sửa lại từ ẢNH GỐC và gộp mọi yêu cầu trước đó, nên đừng nhắc lại các thay đổi cũ. Chỉ đặt from_result=true khi người dùng nói rõ muốn sửa chồng lên đúng ảnh kết quả đó (vd "sửa tiếp trên ảnh này", "giữ y ảnh này rồi..."), hoặc muốn bỏ hẳn một thay đổi cũ thì dùng số ảnh trước đó.
 - Muốn tạo ảnh mới từ chữ: gọi generate_image.
 - Yêu cầu chưa rõ thì làm theo cách hợp lý nhất rồi gợi ý chỉnh thêm, đừng hỏi lại nhiều.
 - Ảnh xong: 1-2 câu ngắn về kết quả, có thể gợi ý một chỉnh sửa tiếp theo. Không lặp lại prompt tiếng Anh.`;
@@ -24,7 +28,9 @@ const SYSTEM = `Bạn là trợ lý AI thân thiện trong app "Sửa Ảnh AI".
 const TOOLS = [
   { type: 'function', function: { name: 'edit_image', description: 'Edit photos from the chat with the image model. The result is shown to the user as a new image.',
     parameters: { type: 'object', properties: { prompt: { type: 'string', description: 'Detailed English edit instruction' },
-      images: { type: 'array', items: { type: 'integer' }, description: 'Image numbers to use; default = the latest image' } }, required: ['prompt'] } } },
+      images: { type: 'array', items: { type: 'integer' }, description: 'Image numbers to use; default = the latest image' },
+      from_result: { type: 'boolean', description: 'true only if the user explicitly wants to edit on top of that exact result image; default false = redo from the original photo with all earlier edits combined (sharper)' } },
+    required: ['prompt'] } } },
   { type: 'function', function: { name: 'generate_image', description: 'Create a brand-new image from a text description.',
     parameters: { type: 'object', properties: { prompt: { type: 'string', description: 'Detailed English description' },
       shape: { type: 'string', enum: ['square', 'portrait', 'landscape'] } }, required: ['prompt'] } } },
@@ -72,6 +78,8 @@ const b64ToBlob = (b64, type = 'image/png') => { const bin = atob(b64); const u 
 const urls = new WeakMap();   // one object URL per blob
 const urlOf = (b) => { if (!urls.has(b)) urls.set(b, URL.createObjectURL(b)); return urls.get(b); };
 const allImages = () => conv.messages.flatMap((m) => m.images || []);
+// Per image: how an edit result was made ({ src: original image numbers, prompts: every edit so far }), null otherwise.
+const allMetas = () => conv.messages.flatMap((m) => (m.images || []).map((_, i) => (m.meta && m.meta[i]) || null));
 
 // ---------- API ----------
 const apiBase = () => cfg.base.replace(/\/+$/, '');
@@ -84,7 +92,7 @@ async function imageCall(prompt, images, shape, signal) {
     let r;
     if (images.length) {
       const fd = new FormData();
-      fd.append('model', cfg.model); fd.append('prompt', prompt); fd.append('n', '1'); fd.append('size', size); fd.append('quality', cfg.quality);
+      fd.append('model', cfg.model); fd.append('prompt', prompt); fd.append('n', '1'); fd.append('size', size); fd.append('quality', cfg.editQuality || cfg.quality);
       if (fidelity) fd.append('input_fidelity', 'high');
       images.forEach((b, i) => fd.append('image[]', b, `image${i + 1}.${b.type === 'image/png' ? 'png' : 'jpg'}`));
       r = await fetch(apiBase() + '/images/edits', { method: 'POST', headers: auth(), body: fd, signal });
@@ -102,20 +110,54 @@ async function imageCall(prompt, images, shape, signal) {
   catch (e) { if (images.length && cfg.fidelity && /fidelity/i.test(e.message)) return go(false); throw e; }
 }
 
-// Chat history -> API messages. Only the user's 2 newest images are sent as pictures (cost); the rest are numbers.
-async function apiMessages(list) {
-  const total = allImages().length; let n = 0; const out = [];
+// Shrunk copies for the chat model, made once per image and size (20 images re-sent every turn).
+const seen = new WeakMap();
+function seeUrl(b, max) {
+  let m = seen.get(b); if (!m) seen.set(b, (m = {}));
+  return (m[max] = m[max] || shrink(b, max, max > 600 ? 0.85 : 0.8).then(toDataUrl));
+}
+
+// Chat history -> API messages. The SHARP+SOFT newest images (user's and bot results) go as pictures, older ones as numbers.
+// Bot results ride in the next user message (assistant messages cannot carry images). Last KEEP messages + summary of the rest.
+async function apiMessages(list, signal) {
+  const total = allImages().length; let n = 0; const out = []; const plain = []; let carry = [];
   for (const m of list) {
     const parts = []; const labels = [];
     for (const b of m.images || []) {
       n++; labels.push(`[ảnh ${n}]`);
-      if (m.role === 'user' && n > total - 2) parts.push({ type: 'image_url', image_url: { url: await toDataUrl(await shrink(b, 768, 0.85)) } });
+      const max = n > total - SHARP ? 1024 : n > total - SHARP - SOFT ? 512 : 0;
+      if (!max) continue;
+      const pic = [{ type: 'text', text: `[ảnh ${n}]${m.role === 'user' ? '' : ' (ảnh bạn đã làm ra)'}` }, { type: 'image_url', image_url: { url: await seeUrl(b, max) } }];
+      (m.role === 'user' ? parts : carry).push(...pic);
     }
     const text = [labels.join(' '), m.text].filter(Boolean).join('\n') || '(ảnh)';
-    if (m.role === 'user') out.push({ role: 'user', content: parts.length ? [{ type: 'text', text }, ...parts] : text });
+    plain.push((m.role === 'user' ? 'Người dùng: ' : 'AI: ') + text);
+    if (m.role === 'user') { const pics = [...carry, ...parts]; carry = []; out.push({ role: 'user', content: pics.length ? [{ type: 'text', text }, ...pics] : text }); }
     else out.push({ role: 'assistant', content: text });
   }
-  return [{ role: 'system', content: SYSTEM }, ...out.slice(-30)];
+  // Window: from the summary's end (so nothing falls in a gap) or the last KEEP; always start on a user message.
+  let start = Math.max(0, out.length - KEEP);
+  const sum = conv.summary;
+  if (start > 0 && (!sum || start - sum.upTo >= SUMMARY_STEP)) {
+    try { conv.summary = { upTo: start, text: await summarize(sum && sum.text, plain.slice(sum ? sum.upTo : 0, start), signal) }; }
+    catch (e) { if (e.name === 'AbortError') throw e; /* no summary this turn: keep going with the window */ }
+  }
+  if (start > 0 && conv.summary) start = Math.min(start, conv.summary.upTo);
+  while (start < out.length && out[start].role !== 'user') start++;
+  const system = start > 0 && conv.summary ? SYSTEM + '\n\nTóm tắt phần trò chuyện cũ (tin nhắn gốc không còn gửi kèm):\n' + conv.summary.text : SYSTEM;
+  return [{ role: 'system', content: system }, ...out.slice(start)];
+}
+
+// Short memory of messages that left the window: previous summary + the messages since then -> a new summary.
+async function summarize(prev, lines, signal) {
+  const r = await fetch(apiBase() + '/chat/completions', { method: 'POST', signal, headers: { ...auth(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: cfg.chatModel, max_tokens: 900, messages: [
+      { role: 'system', content: 'Tóm tắt cuộc trò chuyện trong app sửa ảnh, tối đa 250 từ, tiếng Việt: người dùng là ai/thích gì, ảnh gốc nào ([ảnh n]) là ảnh gì, đã sửa gì trên ảnh nào và kết quả được ưa hay không, việc còn dở, mọi điều người dùng dặn phải nhớ. Chỉ ghi sự thật có trong đoạn chat.' },
+      { role: 'user', content: (prev ? 'Tóm tắt trước đó:\n' + prev + '\n\n' : '') + 'Đoạn trò chuyện tiếp theo:\n' + lines.join('\n') }] }) });
+  if (!r.ok) throw await apiError(r);
+  const t = (((await r.json()).choices || [])[0] || {}).message;
+  if (!t || !t.content) throw new Error('không tóm tắt được');
+  return t.content.trim();
 }
 
 // Streams one chat turn; returns the text and any tool calls. Works with non-streaming replies too.
@@ -153,13 +195,22 @@ async function chatTurn(messages, onText, signal) {
 
 async function runTool(name, args, signal) {
   if (name === 'edit_image') {
-    const imgs = allImages();
-    const nums = Array.isArray(args.images) && args.images.length ? args.images : [imgs.length];
+    const imgs = allImages(); const metas = allMetas();
+    let nums = (Array.isArray(args.images) && args.images.length ? args.images : [imgs.length]).map(Number);
+    let prompts = [String(args.prompt || '')];
+    // Anti-blur (operator 2026-11-12): editing an edit result again = redo from its original photo with all edits combined,
+    // so the image model redraws the photo once instead of copying a copy. from_result=true keeps the old chaining.
+    const m = nums.length === 1 && !args.from_result && metas[nums[0] - 1];
+    if (m) { nums = m.src; prompts = [...m.prompts, ...prompts]; }
     const blobs = nums.map((n) => imgs[n - 1]).filter(Boolean);
     if (!blobs.length) throw new Error('chưa có ảnh nào để sửa');
-    return imageCall(String(args.prompt || ''), blobs, null, signal);
+    const prompt = prompts.length > 1
+      ? 'Apply ALL of these edits to the photo in one result, in this order (if two edits conflict, the later one wins). Keep everything else exactly as in the original photo:\n'
+        + prompts.map((p, i) => `${i + 1}. ${p}`).join('\n')
+      : prompts[0];
+    return { blob: await imageCall(prompt, blobs, null, signal), meta: { src: nums, prompts } };
   }
-  if (name === 'generate_image') return imageCall(String(args.prompt || ''), [], args.shape, signal);
+  if (name === 'generate_image') return { blob: await imageCall(String(args.prompt || ''), [], args.shape, signal), meta: null };
   throw new Error('công cụ không có: ' + name);
 }
 
@@ -180,7 +231,7 @@ async function send() {
   const ctl = new AbortController(); const kill = setTimeout(() => ctl.abort(), 300000);
   const show = (t) => { bot.text = t; updateLast(); };
   try {
-    let msgs = await apiMessages(history);
+    let msgs = await apiMessages(history, ctl.signal);
     let res = await chatTurn(msgs, show, ctl.signal);
     for (let round = 0; res.calls.length && round < 3; round++) {
       const calls = res.calls.map((c, i) => ({ id: c.id || `call_${round}_${i}`, type: 'function', function: { name: c.name, arguments: c.args || '{}' } }));
@@ -189,7 +240,12 @@ async function send() {
         let args = {}; try { args = JSON.parse(c.function.arguments); } catch { /* empty args */ }
         const t0 = Date.now();
         const tick = setInterval(() => setLastStatus(`${c.function.name === 'generate_image' ? 'Đang tạo ảnh' : 'Đang sửa ảnh'}... ${Math.round((Date.now() - t0) / 1000)} s (thường 20-60 s)`), 1000);
-        try { bot.images.push(await runTool(c.function.name, args, ctl.signal)); results.push(`Done: shown to the user as [ảnh ${allImages().length}].`); }
+        try {
+          const r = await runTool(c.function.name, args, ctl.signal);
+          bot.images.push(r.blob); (bot.meta = bot.meta || [])[bot.images.length - 1] = r.meta;
+          const combo = r.meta && r.meta.prompts.length > 1 ? ` (redone from the original [ảnh ${r.meta.src.join('], [ảnh ')}] with all ${r.meta.prompts.length} edits combined, to stay sharp)` : '';
+          results.push(`Done: shown to the user as [ảnh ${allImages().length}]${combo}.`);
+        }
         catch (e) { results.push('Error: ' + e.message); bot.toolError = e.message; }
         finally { clearInterval(tick); setLastStatus(''); }
         updateLast(); convSave();
@@ -281,13 +337,13 @@ async function save() {
 // ---------- settings ----------
 function openSettings() {
   $('#setKey').value = cfg.key; $('#setBase').value = cfg.base; $('#setChatModel').value = cfg.chatModel; $('#setModel').value = cfg.model;
-  $('#setQuality').value = cfg.quality; $('#setFidelity').checked = cfg.fidelity;
+  $('#setQuality').value = cfg.quality; $('#setEditQuality').value = cfg.editQuality; $('#setFidelity').checked = cfg.fidelity;
   $('#settings').showModal();
 }
 $('#btnSaveSettings').onclick = () => {
   cfg.key = $('#setKey').value.trim(); cfg.base = $('#setBase').value.trim() || DEFAULTS.base;
   cfg.chatModel = $('#setChatModel').value.trim() || DEFAULTS.chatModel; cfg.model = $('#setModel').value.trim() || DEFAULTS.model;
-  cfg.quality = $('#setQuality').value; cfg.fidelity = $('#setFidelity').checked; saveCfg();
+  cfg.quality = $('#setQuality').value; cfg.editQuality = $('#setEditQuality').value; cfg.fidelity = $('#setFidelity').checked; saveCfg();
 };
 
 // ---------- wiring ----------
