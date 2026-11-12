@@ -3,7 +3,7 @@
 const $ = (s) => document.querySelector(s);
 // Shown on the welcome screen, in the menu and in Settings so anyone can see which version the phone runs.
 // Must equal VERSION in sw.js (scripts/check.mjs fails otherwise). Bump both + APP_DATE on every change to web/.
-const APP_VERSION = 'v11', APP_DATE = '2026-11-12';
+const APP_VERSION = 'v12', APP_DATE = '2026-11-12';
 document.querySelectorAll('.ver').forEach((e) => { e.textContent = `Phiên bản ${APP_VERSION} · ${APP_DATE.split('-').reverse().join('/')}`; });
 
 // ---------- settings (localStorage, this device only) ----------
@@ -390,4 +390,19 @@ $('#btnUnlock').onclick = () => {
 
 // Open the most recent conversation.
 convAll().then((all) => { if (all[0] && all[0].messages.length) conv = all[0]; render(); });
-if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js');
+// Updates (operator 2026-11-12: the pinned iPhone app stayed old): an iPhone Home Screen app is often resumed, not reloaded,
+// so look for a new sw.js every time the app comes to the front; when a new version takes over, reload once the user is idle
+// (never mid-reply, never losing typed text or attached photos).
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    const check = () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); };
+    document.addEventListener('visibilitychange', check);
+    setInterval(check, 30 * 60 * 1000);
+  });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return; // first install, page already fresh
+    const tryReload = () => (busy || pending.length || $('#input').value.trim() ? setTimeout(tryReload, 3000) : location.reload());
+    tryReload();
+  });
+}
