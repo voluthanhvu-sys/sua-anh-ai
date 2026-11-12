@@ -83,7 +83,7 @@ try {
   const chat1 = seen.find((s) => s.startsWith('/v1/chat/completions')) || '';
   for (const f of ['claude-sonnet-5', '"stream":true', 'edit_image', 'image_url', 'data:image/jpeg']) if (!chat1.includes(f)) fail('chat request missing ' + f);
   const edit = seen.find((s) => s.startsWith('/v1/images/edits')) || fail('edit endpoint not called');
-  for (const f of ['gpt-image-2.5', 'Change the background to sunset orange', 'name="image[]"', 'input_fidelity', 'name="quality"\r\n\r\nhigh']) if (!edit.includes(f)) fail('edit request missing ' + f);
+  for (const f of ['gpt-image-2.5', 'Change the background to sunset orange', 'name="image[]"', 'input_fidelity', 'name="quality"\r\n\r\nmedium']) if (!edit.includes(f)) fail('edit request missing ' + f);
   if (!seen.some((s) => s.startsWith('/v1/chat/completions') && s.includes('"role":"tool"'))) fail('tool result not sent back');
 
   // 4. plain chat (no tool) + conversation survives a reload + shows in the drawer
@@ -120,7 +120,7 @@ try {
 
   mkdirSync(join(root, 'tmp'), { recursive: true });
   writeFileSync(join(root, 'tmp/e2e.png'), Buffer.from((await send('Page.captureScreenshot')).data, 'base64'));
-  console.log('PASS: lock screen, paste unlock, #k= hash change, photo attach, streamed tool call -> image edit -> reply, plain chat, restore after reload, drawer, re-edit from original (combined, high), chat sees bot results, 300-msg window + summary. Screenshot tmp/e2e.png');
+  console.log('PASS: lock screen, paste unlock, #k= hash change, photo attach, streamed tool call -> image edit -> reply, plain chat, restore after reload, drawer, re-edit from original (combined, medium), chat sees bot results, 300-msg window + summary. Screenshot tmp/e2e.png');
 } catch (e) { fail(e.message); }
 cleanup();
 setTimeout(() => { try { rmSync(profile, { recursive: true, force: true }); } catch {} process.exit(0); }, 500);

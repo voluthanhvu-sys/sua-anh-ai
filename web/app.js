@@ -4,12 +4,15 @@ const $ = (s) => document.querySelector(s);
 
 // ---------- settings (localStorage, this device only) ----------
 // Default provider = CheapAI (OpenAI-compatible, CORS open). Chat model picked by test 2026-11-08 (fast, tool calls, cheap).
-const DEFAULTS = { key: '', base: 'https://api.cheapai.io/v1', chatModel: 'claude-sonnet-5', model: 'gpt-image-2.5', size: 'auto', fidelity: true, quality: 'medium', editQuality: 'high' };
+const DEFAULTS = { key: '', base: 'https://api.cheapai.io/v1', chatModel: 'claude-sonnet-5', model: 'gpt-image-2.5', size: 'auto', fidelity: true, quality: 'medium', editQuality: 'medium' };
+// editQuality: medium since 2026-11-12 (measured: high ~5x price, no visible gain at phone size; colour differs per run anyway).
 // What the chat model gets (operator 2026-11-12): last KEEP messages + a summary of older ones (refreshed every SUMMARY_STEP),
 // the SHARP newest images (bot results too) at 1024 px, the SOFT ones before them at 512 px.
 const KEEP = 300, SUMMARY_STEP = 100, SHARP = 10, SOFT = 10;
 const cfg = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem('cfg') || '{}'));
 const saveCfg = () => localStorage.setItem('cfg', JSON.stringify(cfg));
+// v8 may have saved the old 'high' default into a phone's cfg; only a value the user picked himself (editQualityPicked) survives.
+if (!cfg.editQualityPicked) cfg.editQuality = DEFAULTS.editQuality;
 // Ready-made link: https://.../#k=<key> — the part after # never reaches any server; the app keeps the key on this device.
 // The hash stays in the URL on purpose: an iPhone Home Screen app has its own storage and reads the key from its saved URL.
 const hashKey = new URLSearchParams(location.hash.slice(1)).get('k');
@@ -343,7 +346,8 @@ function openSettings() {
 $('#btnSaveSettings').onclick = () => {
   cfg.key = $('#setKey').value.trim(); cfg.base = $('#setBase').value.trim() || DEFAULTS.base;
   cfg.chatModel = $('#setChatModel').value.trim() || DEFAULTS.chatModel; cfg.model = $('#setModel').value.trim() || DEFAULTS.model;
-  cfg.quality = $('#setQuality').value; cfg.editQuality = $('#setEditQuality').value; cfg.fidelity = $('#setFidelity').checked; saveCfg();
+  cfg.quality = $('#setQuality').value; if ($('#setEditQuality').value !== cfg.editQuality) cfg.editQualityPicked = true;
+  cfg.editQuality = $('#setEditQuality').value; cfg.fidelity = $('#setFidelity').checked; saveCfg();
 };
 
 // ---------- wiring ----------

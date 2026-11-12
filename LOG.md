@@ -48,3 +48,8 @@ Format:
 - Done: real paid compare (baby photo), price labels fixed to measured (v9).
 - Files: web/index.html, web/sw.js, docs/knowledge.md, NOW/BACKLOG. Outputs: Desktop/so-sanh-anh-be.
 - Result: high ~$0.078 vs medium ~$0.016, look nearly equal. Lesson -> knowledge: yes.
+
+## 2026-11-12 — v10 edit quality medium
+- Done: editQuality default medium (operator), reset of v8-saved high unless user-picked, labels reordered; e2e expects medium.
+- Files: web/app.js, web/index.html, web/sw.js, tests/e2e.mjs, docs/knowledge.md, NOW/BACKLOG.
+- Result: check OK, e2e PASS, deployed.
