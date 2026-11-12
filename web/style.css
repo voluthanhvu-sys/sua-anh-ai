@@ -58,3 +58,5 @@ dialog label { display:block; margin-top:12px; font-size:14px; color:var(--dim);
 dialog input, dialog select { width:100%; font:inherit; font-size:16px; color:var(--text); background:#2c2c2e; border:1px solid var(--line); border-radius:10px; padding:10px; margin-top:4px; }
 label.check { display:flex; gap:8px; align-items:center; color:var(--text); } label.check input { width:auto; margin:0; }
 .locked input { width:100%; max-width:420px; margin:14px auto 8px; display:block; font:inherit; font-size:16px; color:var(--text); background:#1c1c1e; border:1px solid var(--line); border-radius:10px; padding:11px; } .locked .btn { max-width:420px; margin:0 auto; width:100%; }
+
+.ver { text-align: center; font-size: 12px; opacity: .5; margin: 14px 0 0; }

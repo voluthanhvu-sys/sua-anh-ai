@@ -7,6 +7,6 @@
 
 ## Manual / paid (only when the operator asks — each real edit costs money)
 - One real edit with his key on the iPhone: result shown, Lưu/Chia sẻ opens the iOS share sheet, "Lưu hình ảnh" lands in Photos.
-- After changing web/: bump VERSION in web/sw.js.
+- After changing web/: bump VERSION in web/sw.js AND APP_VERSION/APP_DATE in web/app.js (shown in the app; check.mjs fails on a mismatch).
 
 Rule: a manual check that keeps catching the same mistake becomes an automated check.

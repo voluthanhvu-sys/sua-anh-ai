@@ -1,6 +1,10 @@
 // Sửa Ảnh AI — a private ChatGPT-style app: a chat model (tool calling) + an image model, straight from the browser. No backend.
 'use strict';
 const $ = (s) => document.querySelector(s);
+// Shown on the welcome screen, in the menu and in Settings so anyone can see which version the phone runs.
+// Must equal VERSION in sw.js (scripts/check.mjs fails otherwise). Bump both + APP_DATE on every change to web/.
+const APP_VERSION = 'v11', APP_DATE = '2026-11-12';
+document.querySelectorAll('.ver').forEach((e) => { e.textContent = `Phiên bản ${APP_VERSION} · ${APP_DATE.split('-').reverse().join('/')}`; });
 
 // ---------- settings (localStorage, this device only) ----------
 // Default provider = CheapAI (OpenAI-compatible, CORS open). Chat model picked by test 2026-11-08 (fast, tool calls, cheap).

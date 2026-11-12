@@ -107,6 +107,9 @@ try {
   for (const f of ['Apply ALL of these edits', '1. Change the background to sunset orange', '2. Add a red hat']) if (!edit2.includes(f)) fail('second edit not combined: missing ' + f);
   if ((edit2.match(/name="image\[\]"/g) || []).length !== 1 || !edit2.includes('filename="image1.jpg"')) fail('second edit not made from the original JPEG');
 
+  // 5b. version label visible in the menu (same text on welcome + Settings)
+  if (!(await evalJs(`/^Phiên bản v\\d+ · \\d\\d\\/\\d\\d\\/\\d{4}$/.test(document.querySelector('#drawer .ver').textContent)`))) fail('version label missing');
+
   // 6. long chat: 320 messages -> one summary call for the part before the last 300, then the chat call carries it + <= 300 messages.
   await evalJs(`for (let i = 0; i < 160; i++) conv.messages.push({ role: 'user', text: 'cũ ' + i }, { role: 'assistant', text: 'ok ' + i }); true`);
   const before6 = seen.length;

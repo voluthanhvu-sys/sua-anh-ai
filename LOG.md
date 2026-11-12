@@ -53,3 +53,8 @@ Format:
 - Done: editQuality default medium (operator), reset of v8-saved high unless user-picked, labels reordered; e2e expects medium.
 - Files: web/app.js, web/index.html, web/sw.js, tests/e2e.mjs, docs/knowledge.md, NOW/BACKLOG.
 - Result: check OK, e2e PASS, deployed.
+
+## 2026-11-12 — v11 version label
+- Done: "Phiên bản vN · dd/mm/yyyy" on welcome, menu, Settings (APP_VERSION in app.js); check.mjs fails if it differs from sw.js VERSION; e2e checks the label.
+- Files: web/app.js, web/index.html, web/style.css, web/sw.js, scripts/check.mjs, tests/e2e.mjs, NOW/BACKLOG/knowledge.
+- Result: check OK, e2e PASS, welcome screenshot reviewed, deployed.

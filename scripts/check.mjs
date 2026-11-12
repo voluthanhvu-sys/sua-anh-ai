@@ -38,6 +38,13 @@ if (!errors.length) {
   }
 }
 
+// The version shown in the app (app.js APP_VERSION) must equal the cache version in sw.js, or phones show a wrong label.
+{
+  const shown = (read('web/app.js').match(/APP_VERSION = '([^']+)'/) || [])[1];
+  const cache = (read('web/sw.js').match(/const VERSION = '([^']+)'/) || [])[1];
+  if (!shown || shown !== cache) errors.push(`version mismatch: app.js APP_VERSION=${shown} vs sw.js VERSION=${cache} — bump both`);
+}
+
 if (errors.length) {
   console.error('check FAILED:\n- ' + errors.join('\n- '));
   process.exit(1);
