@@ -43,3 +43,8 @@ Format:
 - Files: web/app.js, web/index.html, web/sw.js, tests/e2e.mjs, docs/knowledge.md, NOW/BACKLOG.
 - Result: check OK, node --check OK, e2e PASS (screenshot reviewed). Real paid chain not run.
 - Lesson -> knowledge: yes.
+
+## 2026-11-12 — high vs medium measured
+- Done: real paid compare (baby photo), price labels fixed to measured (v9).
+- Files: web/index.html, web/sw.js, docs/knowledge.md, NOW/BACKLOG. Outputs: Desktop/so-sanh-anh-be.
+- Result: high ~$0.078 vs medium ~$0.016, look nearly equal. Lesson -> knowledge: yes.
